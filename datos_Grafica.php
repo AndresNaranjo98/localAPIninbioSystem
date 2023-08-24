@@ -59,7 +59,7 @@ ORDER BY id DESC LIMIT 1;");
         }
 
         if ($idTina != 0 && $idTequilera != 0) {
-            $statement = $conexion->prepare("SELECT UNIX_TIMESTAMP(CONVERT_TZ(fecha, '+00:00', @@global.time_zone))*1000 as x, temperatura as y, pH AS z , brix AS w, alcvol AS v, eficiencia AS u, tempMayor, tempMenor, phMayor, phMenor FROM actual WHERE id_tina = :idTina AND id_tequilera = :idTequilera ORDER BY fecha ASC LIMIT 3");
+            $statement = $conexion->prepare("SELECT UNIX_TIMESTAMP(CONVERT_TZ(fecha, '+00:00', @@global.time_zone))*1000 as x, temperatura as y, pH AS z , brix AS w, alcvol AS v, eficiencia AS u, tempMayor, tempMenor, phMayor, phMenor FROM actual WHERE id_tina = :idTina AND id_tequilera = :idTequilera ORDER BY fecha ASC");
             $statement->bindParam(':idTina', $idTina);
             $statement->bindParam(':idTequilera', $idTequilera);
             $statement->execute();

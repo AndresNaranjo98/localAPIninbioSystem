@@ -121,6 +121,8 @@ if($tequilera == 1){
     $canal = '/topics/Joya';
 } else if($tequilera == 3){
     $canal = '/topics/AlmaMexico';
+} else if($tequilera == 4){
+    $canal = '/topics/Trujillo';
 }
 
 $numero_tina = $concat;

@@ -36,10 +36,10 @@ $tequilera = filter_var($_GET["tequilera"], FILTER_SANITIZE_NUMBER_INT);
 $idioma = filter_var($_GET["idioma"], FILTER_SANITIZE_FULL_SPECIAL_CHARS);
 $primer = filter_var($_GET["primer"], FILTER_SANITIZE_FULL_SPECIAL_CHARS);
 $segunda = filter_var($_GET["segunda"], FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-$tempMayor;
-$tempMenor;
-$phMayor;
-$phMenor;
+$tempMayor = [];
+$tempMenor = [];
+$phMayor = [];
+$phMenor = [];
 
 $limites = $conexion->prepare("SELECT 
 tempMayor,
@@ -52,21 +52,25 @@ WHERE
 id_tina = :idTina
     AND id_tequilera = :tequilera
     -- AND fecha BETWEEN '$primer' AND '$segunda'
-ORDER BY id DESC LIMIT 1;");
+ORDER BY id ASC;");
 $limites->bindParam(':idTina', $idTina);
 $limites->bindParam(':tequilera', $tequilera);
 $limites->execute();
-while ($rows = $limites->fetchAll(PDO::FETCH_ASSOC)) {
-    $tempMayor = $rows[0]["tempMayor"];
-    $tempMenor = $rows[0]["tempMenor"];
-    $phMayor = $rows[0]["phMayor"];
-    $phMenor = $rows[0]["phMenor"];
-}
+$rows = $limites->fetchAll(PDO::FETCH_ASSOC);
+for($i = 0; $i < count($rows); $i++) {
+    $tempMayor = $rows[$i]["tempMayor"];
+    $tempMenor = $rows[$i]["tempMenor"];
+    $phMayor = $rows[$i]["phMayor"];
+    $phMenor = $rows[$i]["phMenor"];
 
+    // echo 'Pasó '.$i . ' Vez ';
+    echo $tempMayor.' , ';
+    echo $tempMenor.' , ';
+}
 if ($idioma === 'es') {
 
     $query = $conexion->prepare("SELECT id, DATE_FORMAT(fecha,'%Y-%m-%d %H:%i:%s') AS fecha, brix, alcvol, eficiencia, temperatura, 
-    pH, volumen, id_tina, id_tequilera
+    pH, volumen, id_tina, id_tequilera, tempMayor, tempMenor, phMayor, phMenor
     FROM IninbioSystems.monitoreo WHERE id_tina = :idTina AND id_tequilera = :tequilera AND fecha BETWEEN :primer 
     AND :segunda 
     ORDER BY id ASC;");
@@ -92,13 +96,23 @@ if ($idioma === 'es') {
     $HojaActiva->getColumnDimension('F')->setAutoSize(true);
     $HojaActiva->setCellValue('F1', 'Eficiencia de Fermentación (%)');
     $HojaActiva->getColumnDimension('G')->setAutoSize(true);
-    $HojaActiva->setCellValue('G1', 'Número de Tina');
+    $HojaActiva->setCellValue('G1', 'Temperatura Mayor');
+    $HojaActiva->getColumnDimension('H')->setAutoSize(true);
+    $HojaActiva->setCellValue('H1', 'Temperatura Menor');
+    $HojaActiva->getColumnDimension('I')->setAutoSize(true);
+    $HojaActiva->setCellValue('I1', 'pH Mayor');
+    $HojaActiva->getColumnDimension('J')->setAutoSize(true);
+    $HojaActiva->setCellValue('J1', 'pH Menor');
+    $HojaActiva->getColumnDimension('K')->setAutoSize(true);
+    $HojaActiva->setCellValue('K1', 'Número de Tina');
+    $HojaActiva->getColumnDimension('L')->setAutoSize(true);
+    $HojaActiva->setCellValue('L1', 'LIMITE PH MENOR');
 
     $fila = 2;
     $contentStartRow = 2;
     $lastBrix = null;
 
-    while ($rows = $query->fetchAll(PDO::FETCH_ASSOC)) {
+    $rows = $query->fetchAll(PDO::FETCH_ASSOC);
         for ($x = 0; $x < count($rows); $x++) {
             $HojaActiva->setCellValue('A' . $fila, $rows[$x]['fecha']);
             $HojaActiva->setCellValue('B' . $fila, $rows[$x]['temperatura']);
@@ -106,43 +120,39 @@ if ($idioma === 'es') {
             $HojaActiva->setCellValue('D' . $fila, $rows[$x]['brix']);
             $HojaActiva->setCellValue('E' . $fila, $rows[$x]['alcvol']);
             $HojaActiva->setCellValue('F' . $fila, $rows[$x]['eficiencia']);
-            $HojaActiva->setCellValue('G' . $fila, $rows[$x]['id_tina']);
+            $HojaActiva->setCellValue('G' . $fila, $rows[$x]['tempMayor']);
+            $HojaActiva->setCellValue('H' . $fila, $rows[$x]['tempMenor']);
+            $HojaActiva->setCellValue('I' . $fila, $rows[$x]['phMayor']);
+            $HojaActiva->setCellValue('J' . $fila, $rows[$x]['phMenor']);
+            $HojaActiva->setCellValue('K' . $fila, $rows[$x]['id_tina']);
+            $HojaActiva->setCellValue('L' . $fila, $rows[$x]['phMenor']);
             if (!is_null($lastBrix) && $rows[$x]['brix'] == $lastBrix) {
                 $HojaActiva->getStyle('D' . $fila)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FF0000');
             }
             $lastBrix = $rows[$x]['brix'];
             $fila++;
-        }
-    }
+    // }
     $HojaActiva->removeRow($fila, 2);
-    $HojaActiva->getStyle('A:G')->getAlignment()->setHorizontal('center');
-    $HojaActiva->getStyle('A1:G1')->getFont()->setBold(true);
+    $HojaActiva->getStyle('A:L')->getAlignment()->setHorizontal('center');
+    $HojaActiva->getStyle('A1:L1')->getFont()->setBold(true);
 //$HojaActiva->getStyle('A:F')->getAllBorders()->getOutline()->setBorderStyle(Border::BORDER_THIN)->setColor(new Color('FF000000'));
 
-//CONDICIONAL PH < 4
+//CONDICIONAL PH
     $condicional = new Conditional();
     $condicional->setConditionType(Conditional::CONDITION_CELLIS)
         ->setOperatorType(Conditional::OPERATOR_LESSTHAN)
-        ->addCondition($phMenor);
+        ->addCondition($rows[$x]['phMenor']);
 
     $condicional->getStyle()->getFill()->setFillType(Fill::FILL_SOLID);
     $condicional->getStyle()->getFill()->getStartColor()->setARGB(Color::COLOR_RED);
     $condicional->getStyle()->getFill()->getEndColor()->setARGB(Color::COLOR_RED);
     $condicional->getStyle()->getFont()->getColor()->setARGB(Color::COLOR_BLACK);
 
-    $contentEndRow = $fila - 1;
-    $estiloCondicional = $HojaActiva->getStyle('C' . $contentStartRow . ':C' . $contentEndRow)
-        ->getConditionalStyles();
-
-    array_push($estiloCondicional, $condicional);
-    $HojaActiva->getStyle('C' . $contentStartRow . ':C' . $contentEndRow)
-        ->setConditionalStyles($estiloCondicional);
-
-//CONDICIONAL PH > 4.8
+//CONDICIONAL PH
     $condicional1 = new Conditional();
     $condicional1->setConditionType(Conditional::CONDITION_CELLIS)
         ->setOperatorType(Conditional::OPERATOR_GREATERTHAN)
-        ->addCondition($phMayor);
+        ->addCondition($rows[$x]['phMayor']);
 
     $condicional1->getStyle()->getFill()->setFillType(Fill::FILL_SOLID);
     $condicional1->getStyle()->getFill()->getStartColor()->setARGB(Color::COLOR_RED);
@@ -157,11 +167,11 @@ if ($idioma === 'es') {
     $HojaActiva->getStyle('C' . $contentStartRow . ':C' . $contentEndRow)
         ->setConditionalStyles($estiloCondicional);
 
-//CONDICIONAL TEMPERATURA > 35
+//CONDICIONAL TEMPERATURA
     $condicional2 = new Conditional();
     $condicional2->setConditionType(Conditional::CONDITION_CELLIS)
         ->setOperatorType(Conditional::OPERATOR_GREATERTHAN)
-        ->addCondition($tempMayor);
+        ->addCondition($rows[$x]['tempMayor']);
 
     $condicional2->getStyle()->getFill()->setFillType(Fill::FILL_SOLID);
     $condicional2->getStyle()->getFill()->getStartColor()->setARGB(Color::COLOR_RED);
@@ -176,11 +186,11 @@ if ($idioma === 'es') {
     $HojaActiva->getStyle('B' . $contentStartRow . ':B' . $contentEndRow)
         ->setConditionalStyles($estiloCondicional);
 
-//CONDICIONAL TEMPERATURA < 26
+//CONDICIONAL TEMPERATURA
     $condicional3 = new Conditional();
     $condicional3->setConditionType(Conditional::CONDITION_CELLIS)
         ->setOperatorType(Conditional::OPERATOR_LESSTHAN)
-        ->addCondition($tempMenor);
+        ->addCondition($rows[$x]['tempMenor']);
 
     $condicional3->getStyle()->getFill()->setFillType(Fill::FILL_SOLID);
     $condicional3->getStyle()->getFill()->getStartColor()->setARGB(Color::COLOR_RED);
@@ -194,23 +204,12 @@ if ($idioma === 'es') {
     array_push($estiloCondicional, $condicional3);
     $HojaActiva->getStyle('B' . $contentStartRow . ':B' . $contentEndRow)
         ->setConditionalStyles($estiloCondicional);
-
+    } //CIERRA EL FOR
     $writer = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($excel, 'Xlsx');
     ob_end_clean();
     $writer->save('php://output');
     exit();
-
-    class Result
-    {}
-
-    $response = new Result();
-    if ($response->resultado = 'OK') {
-
-        $response->mensaje = 'Excel Generado';
-
-    } else {
-        $response->mensaje = 'No Se Pudo Generar El Excel';
-    }
+// }
 } else if ($idioma === 'en') {
     $query = $conexion->prepare("SELECT id, DATE_FORMAT(fecha,'%Y-%m-%d %H:%i:%s') AS fecha, brix, alcvol, eficiencia, temperatura, 
     pH, volumen, id_tina, id_tequilera
@@ -505,7 +504,8 @@ if ($idioma === 'es') {
     } else {
         $response->mensaje = 'No Se Pudo Generar El Excel';
     }
-} 
+}
+// }
     } else {
         echo json_encode(array('error' => 'Access denied to this resource'));
     }
